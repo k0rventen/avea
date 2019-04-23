@@ -221,7 +221,7 @@ def discover_avea_bulbs():
     This method requires the script to be launched as root
     Returns the list of nearby bulbs
     """
-    bulb_list = {}
+    bulb_list = []
     from bluepy.btle import Scanner, DefaultDelegate
 
     class ScanDelegate(DefaultDelegate):
