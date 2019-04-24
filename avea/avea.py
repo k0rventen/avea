@@ -2,7 +2,7 @@
 Creator : corentin
 License : MIT
 Source  : https://github.com/k0rventen/avea
-Version : 1.2.6
+Version : 1.2.7
 """
 
 # Standard imports
