@@ -1,6 +1,6 @@
 # Control of an Elgato Avea bulb using Python
 
-![PyPI](https://img.shields.io/pypi/v/avea.svg)
+[![PyPI](https://img.shields.io/pypi/v/avea.svg)](https://pypi.org/project/avea/)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/k0rventen/avea.svg?)](https://lgtm.com/projects/g/k0rventen/avea/context:python)
 [![Build Status](https://travis-ci.com/k0rventen/avea.svg?branch=master)](https://travis-ci.com/k0rventen/avea)
 
