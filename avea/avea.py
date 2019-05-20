@@ -2,7 +2,7 @@
 Creator : corentin
 License : MIT
 Source  : https://github.com/k0rventen/avea
-Version : 1.2.7
+Version : 1.2.8
 """
 
 # Standard imports
@@ -58,7 +58,7 @@ class Bulb:
         # Catch if the bulb does not respond instead of crashing the whole script
         try:
             self.bulb.connect(self.addr)
-        except bluepy.btle.BTLEDisconnectError:
+        except Exception: 
             print("Could not connect to the Bulb")
             return False
 
@@ -71,7 +71,10 @@ class Bulb:
 
         Cleanup properly the bluepy's Peripheral and the Notification's Delegate to avoid weird issues
         """
-        self.bulb.disconnect()
+        try:
+            self.bulb.disconnect()
+        except Exception:
+            pass
         del self.bulb
         del self.delegate
 

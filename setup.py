@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="avea",
-    version="1.2.7",
+    version="1.2.8",
     author="corentin",
     description="Control an Elgato Avea bulb using python",
     long_description=long_description,
