@@ -238,7 +238,6 @@ def discover_avea_bulbs():
     for dev in devices:
         for (adtype, desc, value) in dev.getScanData():
             if "Avea" in value:
-                print("Found bulb with address " + str(dev.addr)+" !")
                 bulb_list.append(Bulb(dev.addr))
     return bulb_list
 
