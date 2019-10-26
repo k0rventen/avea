@@ -14,6 +14,7 @@ Tested on Raspberry Pi 3 and Zero W (with integrated bluetooth).
 - [Control of an Elgato Avea bulb using Python](#control-of-an-elgato-avea-bulb-using-python)
   - [TL;DR](#tldr)
   - [Library usage](#library-usage)
+  - [Code documentation](#code-documentation)
   - [Reverse engineering of the bulb](#reverse-engineering-of-the-bulb)
   - [Communication protocol](#communication-protocol)
     - [Intro](#intro)
@@ -56,6 +57,12 @@ sudo python3 setup.py install
 
 ## Library usage
 
+You can check the example script `example.py`, to try it directly onto your bulbs :
+
+```bash
+sudo python3 example.py
+```
+
 Below is a quick how-to of the various methods of the library.
 
 **Note : the discover\_avea\_bulbs() function needs root privileges, due to bluepy's scan(). From your user, you can use sudo -E.**
@@ -70,19 +77,20 @@ for bulb in nearbyBulbs:
     bulb.get_name()
     print(bulb.name)
 
-# Or create a bulb if you know its address
+# Or create a bulb if you know its address (after a scan for example)
 myBulb = avea.Bulb("xx:xx:xx:xx:xx:xx")
 
 # You can set the brightness, color and name
-myBulb.set_brightness(2000)  # ranges from 0 to 4095
-myBulb.set_color(0,4095,0,0)  # in order : white, red, green, blue
-myBulb.set_rgb(0,255,0) # RGB compliant function
-myBulb.set_name("bedroom")
+myBulb.set_brightness(2000)                 # ranges from 0 to 4095
+myBulb.set_color(0,4095,0,0)                # in order : white, red, green, blue
+myBulb.set_rgb(0,255,0)                     # RGB compliant function
+myBulb.set_smooth_transition(255,255,0,4,30)   # change to rgb(255,255,0) in 4s with 30 iterations per second
+myBulb.set_name("bedroom")                  # new name of the bulb
 
-# And get the bulb brightness, color and name
-print(myBulb.get_name())  # Query the name of the bulb
-theColor = myBulb.get_color() # Query the current color
-theRgbColor = myBulb.get_rgb() # Query the bulb in a RGB format
+# And get the brightness, color and name
+print(myBulb.get_name())                # Query the name of the bulb
+theColor = myBulb.get_color()           # Query the current color
+theRgbColor = myBulb.get_rgb()          # Query the bulb in a RGB format
 theBrightness = myBulb.get_brightness() # query the current brightness
 ```
 
@@ -90,9 +98,12 @@ That's it. Pretty simple.
 
 Check the explanations below for more informations, or check the sources !
 
+
+## Code documentation
+
 ## Reverse engineering of the bulb
 
-I've used the informations given by [Marmelatze](https://github.com/Marmelatze/avea_bulb) as well as some reverse engineering using a `btsnoop_hci.log` file and Wireshark.
+I've used the informations given by [Marmelatze](https://github.com/Marmelatze/avea_bulb) as well as some reverse engineering using a `btsnoop_hci.log` file from an Android device and Wireshark.
 
 Below is a pretty thorough explanation of the BLE communication and the python implementation to communicate with the bulb.
 
@@ -107,7 +118,7 @@ To communicate the bulb uses Bluetooth 4.0 "BLE", which provide some interesting
 
 To sum up, the bulb emits a set of `services` which have `characteristics`. We use the latter to communicate to the device.
 
-The bulb uses the service `f815e810456c6761746f4d756e696368` and the associated characteristic `f815e811456c6761746f4d756e696368` to send and receive informations about its state (color, name and brightness)
+The bulb uses the service `f815e810456c6761746f4d756e696368` and the associated characteristic `f815e811456c6761746f4d756e696368` to send and receive informations about its state (color, name and brightness). We'll transmit over this characteristic.
 
 ### Commands and payload explanation
 
@@ -216,4 +227,4 @@ self.bulb.writeCharacteristic(41, "0100")
 After that, we will receive notifications from the bulb.
 
 ## TODO
-- Reverse engineer and the `ambiances` (which are mood-based scenes).
+- Reverse engineer the `ambiances` (which are mood-based scenes).
