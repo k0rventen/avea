@@ -1,8 +1,8 @@
 """
-Creator : corentin
+Creator : k0rventen
 License : MIT
 Source  : https://github.com/k0rventen/avea
-Version : 1.2.8
+Version : 1.4
 """
 
 # Standard imports
@@ -12,7 +12,7 @@ import time  # for delays
 import bluepy  # for BLE transmission
 
 # __all__ definition for __init__.py
-__all__ = ["Bulb", "discover_avea_bulbs", "compute_brightness",
+__all__ = ["Bulb", "discover_avea_bulbs", "compute_brightness", "compute_transition_table",
            "compute_color", "check_bounds", "AveaDelegate", "AveaPeripheral"]
 
 
@@ -58,7 +58,7 @@ class Bulb:
         # Catch if the bulb does not respond instead of crashing the whole script
         try:
             self.bulb.connect(self.addr)
-        except Exception: 
+        except Exception:
             print("Could not connect to the Bulb")
             return False
 
@@ -133,6 +133,55 @@ class Bulb:
                                                             check_bounds(blue*16)))
             self.disconnect()
 
+
+    def set_smooth_transition(self, target_red, target_green, target_blue, duration=2, fps=60):
+        """Transition smoothly between the current color and a given
+        target color, in a given timeframe and a fps number, or how many changes per second are wanted.
+
+        It computes the delta between the inital and target colors, then
+        creates a transition table for each color based on this delta, the time and fps args,
+        then loops set_color() with the appropriate colors and intervals to create a smooth transition.
+
+        Args:
+            target_red (int): target red rgb value
+            target_green (int): target green rgb value
+            target_blue (int): target blue rgb value
+            time (int, optional): duration of the transition in seconds. Defaults to 2.
+            fps (int, optional): number of iterations per second. Defaults to 60.
+        """
+        try:
+            init_r, init_g, init_b = self.get_rgb()
+        except:
+            print("Could not connect to bulb")
+            return
+        if self.connect():
+
+            # compute iters & interval
+            
+            iterations = duration*fps
+            interval = 1/fps
+
+            # Compute the tables
+            transition_table_red = compute_transition_table(
+                init_r, target_red, iterations)
+            transition_table_green = compute_transition_table(
+                init_g, target_green, iterations)
+            transition_table_blue = compute_transition_table(
+                init_b, target_blue, iterations)
+
+            # Loopy loop
+            for i in range(iterations):
+                
+                val = compute_color(check_bounds(0),check_bounds(transition_table_red[i]*16),check_bounds(transition_table_green[i]*16),check_bounds(transition_table_blue[i]*16))
+                try:
+                    self.bulb.writeCharacteristic(40,val)
+                except:
+                    self.disconnect()
+                    self.connect()
+                time.sleep(interval)
+            self.disconnect()
+
+
     def get_color(self):
         """Retrieve and return the current color of the bulb
 
@@ -165,7 +214,7 @@ class Bulb:
 
     def get_name(self):
         """Get and return the name of the bulb
-        
+
         :returns: Name of the bulb
         """
         if self.connect():
@@ -246,7 +295,8 @@ def compute_brightness(brightness):
     """Return the hex code for the specified brightness"""
     value = hex(int(brightness))[2:]
     value = value.zfill(4)
-    value = value[2:] + value[:2]
+    value = value[2:] + value[:2] # how to swap endianness
+
     return "57" + value
 
 
@@ -263,6 +313,47 @@ def compute_color(w=2000, r=0, g=0, b=0):
     return color + fading + unknow + white + red + green + blue
 
 
+def compute_transition_table(init, target, iterations):
+    """Compute a list of values for a smooth transition 
+    between 2 numbers. 
+    
+    Args:
+        init (int): initial value
+        target (int): target value
+        iterations (int): number of in-between values to create
+    
+    Returns:
+        list: the transition list
+    """
+    # Get the increment and create the inital table
+    if target < init:
+        incr = -1
+    else:
+        incr = 1
+    tmp_range = [i for i in range(init, target, incr)]
+    # if tmp range is 0 len, that means there is no change for this color,
+    if len(tmp_range) is 0:
+        tmp_range.append(target)
+    # If the range is too long, pop some values until we are ok
+    pop_index = 1
+    while len(tmp_range) > iterations:
+        tmp_range.pop(pop_index % len(tmp_range))
+        pop_index += 4
+
+    # If the range is too short, add some values twice until we are ok
+    insert_index = 0
+    while len(tmp_range) < iterations:
+        insert_index = insert_index % len(tmp_range)
+        tmp_range.insert(
+            insert_index, tmp_range[insert_index-1 if insert_index-1 > 0 else 0])
+        insert_index += 4
+
+    # Pop the first and append the index
+    tmp_range.pop(0)
+    tmp_range.append(target)
+    return tmp_range
+
+
 def check_bounds(value):
     """Check if the given value is out-of-bounds (0 to 4095)
 
@@ -275,8 +366,10 @@ def check_bounds(value):
 
         elif int(value) < 0:
             return 0
+
         else:
             return value
+            
     except ValueError:
         print("Value was not a number, returned default value of 0")
         return 0
