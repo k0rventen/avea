@@ -92,6 +92,7 @@ print(myBulb.get_name())                # Query the name of the bulb
 theColor = myBulb.get_color()           # Query the current color
 theRgbColor = myBulb.get_rgb()          # Query the bulb in a RGB format
 theBrightness = myBulb.get_brightness() # query the current brightness
+theAddr = myBulb.addr                   # query the bulb Bluetooth addr
 ```
 
 That's it. Pretty simple.
