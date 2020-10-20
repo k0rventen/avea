@@ -28,6 +28,7 @@ class Bulb:
         """ Just setup some vars"""
         self.addr = address
         self.name = "Unknown"
+        self.fw_version = "Unknown"
         self.red = 0
         self.blue = 0
         self.green = 0
@@ -65,6 +66,20 @@ class Bulb:
         self.bulb.withDelegate(self.delegate)
         self.subscribe_to_notification()
         return True
+    
+    def get_fw_version(self):
+	    """Retrieve and return the current Firmware Revision of the bulb"""
+        version = ""
+        if self.connect():
+            try:
+                c = self.bulb.getCharacteristics(uuid=bluepy.btle.AssignedNumbers.firmwareRevisionString)
+                version = c[0].read()
+            except (bluepy.btle.BTLEException, BrokenPipeError, AttributeError) as e:
+                print(e, "get_fw_version")
+            if type(version) is bytes:
+                version = version.decode("utf-8")
+        self.fw_version = version;
+        return version
 
     def disconnect(self):
         """Disconnect from the bulb
