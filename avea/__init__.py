@@ -1,4 +1,4 @@
-"""avea.
+"""avea
 
 A python library to control Elgato's Avea Bulb.
 """
