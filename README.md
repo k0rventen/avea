@@ -93,6 +93,7 @@ theColor = myBulb.get_color()           # Query the current color
 theRgbColor = myBulb.get_rgb()          # Query the bulb in a RGB format
 theBrightness = myBulb.get_brightness() # query the current brightness
 theAddr = myBulb.addr                   # query the bulb Bluetooth addr
+theFwVersion = myBulb.get_fw_version()  # query the bulb firmware version
 ```
 
 That's it. Pretty simple.
