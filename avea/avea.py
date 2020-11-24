@@ -68,7 +68,7 @@ class Bulb:
         return True
     
     def get_fw_version(self):
-	    """Retrieve and return the current Firmware Revision of the bulb"""
+        """Retrieve and return the current Firmware Revision of the bulb"""
         version = ""
         if self.connect():
             try:
