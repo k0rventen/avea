@@ -11,6 +11,7 @@ setuptools.setup(
     description="Control an Elgato Avea bulb using python3",
     long_description=long_description,
     long_description_content_type="text/markdown",
+    license="MIT",
     url="https://github.com/k0rventen/avea",
     packages=setuptools.find_packages(),
     classifiers=[
