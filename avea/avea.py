@@ -2,7 +2,7 @@
 Creator : k0rventen
 License : MIT
 Source  : https://github.com/k0rventen/avea
-Version : 1.4
+Version : 1.5.2
 """
 
 # Standard imports
@@ -166,7 +166,7 @@ class Bulb:
         """
         try:
             init_r, init_g, init_b = self.get_rgb()
-        except:
+        except Exception:
             print("Could not connect to bulb")
             return
         if self.connect():
@@ -190,7 +190,7 @@ class Bulb:
                 val = compute_color(check_bounds(0),check_bounds(transition_table_red[i]*16),check_bounds(transition_table_green[i]*16),check_bounds(transition_table_blue[i]*16))
                 try:
                     self.bulb.writeCharacteristic(40,val)
-                except:
+                except Exception:
                     self.disconnect()
                     self.connect()
                 time.sleep(interval)
