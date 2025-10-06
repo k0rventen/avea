@@ -20,6 +20,7 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
     ],
     install_requires=[
-        'bluepy',
+        'bleak>=1.1.1',
+        'bleak-retry-connector>=4.4.3',
     ],
 )
