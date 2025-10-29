@@ -26,19 +26,17 @@ Tested on Raspberry Pi 3 and Zero W (with integrated bluetooth).
       - [Color](#color)
   - [Python implementation](#python-implementation)
     - [One-liner for color computation](#one-liner-for-color-computation)
-    - [Bluepy writeCharacteristic() overwrite](#bluepy-writecharacteristic-overwrite)
-    - [Working with notifications using Bluepy](#working-with-notifications-using-bluepy)
+    - [Bleak write\_gatt\_char usage](#bleak-write_gatt_char-usage)
+    - [Working with notifications using Bleak](#working-with-notifications-using-bleak)
   - [TODO](#todo)
 
 ## TL;DR
 
-The lib requires [bluepy](https://github.com/IanHarvey/bluepy), so we must install the following dependancy, wheter we use pip or install from source.
+The lib requires [bleak](https://github.com/hbldh/bleak), so we must install the following dependency, whether we use pip or install from source.
 
-**Dependancies**
+**Dependencies**
 
-```
-sudo apt install libglib2.0-dev
-```
+Ensure your system Bluetooth stack is available (for example `bluez` on Linux or the built-in CoreBluetooth framework on macOS). The Python dependency `bleak` is installed automatically when using pip.
 
 **Then install from pip3**
 
@@ -65,13 +63,13 @@ sudo python3 example.py
 
 Below is a quick how-to of the various methods of the library.
 
-**Note : the discover\_avea\_bulbs() function needs root privileges, due to bluepy's scan(). From your user, you can use sudo -E.**
+**Note : depending on your operating system configuration, Bluetooth discovery may require additional permissions (for example running with sudo on Linux or granting Bluetooth access on macOS).**
 
 ```python
 import avea # Important !
 
 # Get nearby bulbs in a list, then retrieve the name of all bulbs
-# using this method requires root privileges (because of bluepy's scan() )
+# discovery might require elevated privileges depending on the platform
 nearbyBulbs = avea.discover_avea_bulbs()
 for bulb in nearbyBulbs:
     bulb.get_name()
@@ -207,26 +205,15 @@ To compute the correct values for each color, I created the following conversion
 white = (int(<value>) | int(0x8000)).to_bytes(2, byteorder='little').hex()
 ```
 
-### Bluepy writeCharacteristic() overwrite
-By default, the btle.Peripheral() object of bluepy only allows to send UTF-8 encoded strings, which are internally converted to hexadecimal. As we craft our own hexadecimal payload, we need to bypass this behavior. A child class of Peripheral() is created and overwrites the writeCharacteristic() method, as follows :
+### Bleak write_gatt_char usage
+Bleak lets us send raw binary payloads straight to a characteristic without any extra overrides. The library now prepares the payload as bytes and calls the client directly:
 
 ```python
-class AveaPeripheral(bluepy.btle.Peripheral):
-    def writeCharacteristic(self, handle, val, withResponse=True):
-        cmd = "wrr" if withResponse else "wr"
-        self._writeCmd("%s %X %s\n" % (cmd, handle, val))
-        return self._getResp('wr')
+await client.write_gatt_char(CONTROL_CHARACTERISTIC_UUID, payload, response=False)
 ```
 
-### Working with notifications using Bluepy
-To reply to our packets, the bulb is using BLE notifications, and some setup is required to be able to receive these notifications with bluepy.
-
-To subscribe to the bulb's notifications, we must send a "0100" to the BLE handle which is just after the one used for communication. As we use handle 0x0028 (40 for bluepy) to communicate, we will send the notification payload to the handle 0x0029 (so 41 for bluepy)
-
-```python
-self.bulb.writeCharacteristic(41, "0100")
-```
-After that, we will receive notifications from the bulb.
+### Working with notifications using Bleak
+Notifications are enabled through `BleakClient.start_notify`. During the connection phase the library subscribes to the Avea control characteristic and routes every notification to a callback that updates the cached bulb state. Synchronous getters wait on an `asyncio.Event` that is set when the expected command is received, keeping the public API blocking while leveraging bleak under the hood.
 
 ## TODO
 - Reverse engineer the `ambiances` (which are mood-based scenes).
