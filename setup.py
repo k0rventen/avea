@@ -24,7 +24,7 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
     ],
     install_requires=[
-        'bleak>=1.1.1',
+        'bleak>=1.0.0',
         'bleak-retry-connector>=4.4.3',
     ],
     python_requires=">=3.9,<4",
