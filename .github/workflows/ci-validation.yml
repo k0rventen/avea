@@ -1,6 +1,7 @@
-name: PR Validation
+name: CI Validation
 
 on:
+  push: {}
   pull_request:
     types: [opened, synchronize, reopened]
 
