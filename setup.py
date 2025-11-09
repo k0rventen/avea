@@ -24,7 +24,7 @@ setuptools.setup(
     ],
     install_requires=[
         "bleak>=1.0.0",
-        "bleak-retry-connector>=4.4.3",
+        "bleak-retry-connector>=4.0.0",
     ],
     python_requires=">=3.10,<4",
 )
