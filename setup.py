@@ -16,7 +16,6 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -24,8 +23,8 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
     ],
     install_requires=[
-        'bleak>=1.0.0',
-        'bleak-retry-connector>=4.4.3',
+        "bleak>=1.0.0",
+        "bleak-retry-connector>=4.4.3",
     ],
-    python_requires=">=3.9,<4",
+    python_requires=">=3.10,<4",
 )
