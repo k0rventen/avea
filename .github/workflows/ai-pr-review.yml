@@ -1,0 +1,194 @@
+name: AI pull request note
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  note:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      models: read
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Collect pull request diff
+        id: diff
+        run: |
+          gh pr diff "$PR_NUMBER" --repo "$REPO" > pr.diff
+          gh pr view "$PR_NUMBER" --repo "$REPO" --json files --jq '.files[].path' > changed-files.txt
+          {
+            echo 'diff<<EOF'
+            head -c 18000 pr.diff
+            echo
+            echo 'EOF'
+            echo 'files<<EOF'
+            head -n 40 changed-files.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+
+      - name: Collect focused file context
+        id: context
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          diff = Path('pr.diff').read_text(errors='replace').splitlines()
+          files = {}
+          current = None
+          for line in diff:
+              if line.startswith('+++ b/'):
+                  current = line[6:]
+                  files.setdefault(current, [])
+              elif current and line.startswith('@@'):
+                  match = re.search(r'\+(\d+)(?:,(\d+))?', line)
+                  if match:
+                      start = int(match.group(1))
+                      count = int(match.group(2) or '1')
+                      files[current].append((start, start + max(count, 1) - 1))
+          chunks = []
+          for path, ranges in files.items():
+              file_path = Path(path)
+              if not file_path.is_file() or file_path.stat().st_size > 120000:
+                  continue
+              lines = file_path.read_text(errors='replace').splitlines()
+              used = []
+              for start, end in ranges[:5]:
+                  a = max(1, start - 25)
+                  b = min(len(lines), end + 25)
+                  if used and a <= used[-1][1] + 10:
+                      used[-1] = (used[-1][0], max(used[-1][1], b))
+                  else:
+                      used.append((a, b))
+              for a, b in used[:4]:
+                  chunks.append(f'--- {path}:{a}-{b} ---')
+                  chunks.extend(f'{i}: {lines[i-1]}' for i in range(a, b + 1))
+          Path('focused-context.txt').write_text('\n'.join(chunks)[:10000])
+          PY
+          {
+            echo 'context<<EOF'
+            cat focused-context.txt
+            echo
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run AI pull request note
+        id: note
+        uses: actions/ai-inference@v2
+        with:
+          prompt: |
+            Review this PR using only the title, body, changed files, diff, and nearby context below. Return a neutral maintainer note, not a Copilot-style code review.
+
+            Hard rules:
+            - Use exactly these sections, in this order: **Changed files**, **Summary**, **Scope**, **Notes**.
+            - Do not include a **Strengths** section or praise such as "well documented", "good", "excellent", "nice", or "solid".
+            - Do not include empty categories.
+            - Do not say "No security issues found", "No bugs found", "No serious issues", or similar generic reassurance.
+            - For documentation-only PRs, do not invent runtime bugs.
+            - Do not flag downstream clamping when the diff/context shows values are clamped before that call. If relevant, prefer a docstring note like: "expects values already clamped".
+            - Keep the whole answer under 900 characters.
+
+            Format:
+            **Changed files**
+            - List up to five changed files from the input. If there are more, add one final "- ..." line.
+
+            **Summary**
+            One sentence.
+
+            **Scope**
+            One short sentence describing the affected area.
+
+            **Notes**
+            Up to two very short bullets only for concrete follow-up notes supported by the diff/context. If there are none, write exactly: No concrete follow-up notes.
+
+            Title:
+            ${{ github.event.pull_request.title }}
+
+            Body:
+            ${{ github.event.pull_request.body }}
+
+            Changed files:
+            ```
+            ${{ steps.diff.outputs.files }}
+            ```
+
+            Diff:
+            ```diff
+            ${{ steps.diff.outputs.diff }}
+            ```
+
+            Context:
+            ```
+            ${{ steps.context.outputs.context }}
+            ```
+
+      - name: Create or update PR note comment
+        run: |
+          cat > ai-response.md <<'EOF'
+          ${{ steps.note.outputs.response }}
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          marker = '<!-- ai-pr-note -->'
+          heading = '## AI pull request note'
+          max_chars = 1200
+          trailer = '\n\n_Output shortened by workflow._\n'
+          response = Path('ai-response.md').read_text().strip()
+
+          if response:
+              response = re.sub(r'(?is)\n?\*\*Strengths\*\*.*?(?=\n\*\*[^*]+\*\*|\Z)', '', response).strip()
+              forbidden = re.compile(
+                  r'^\s*[-*]?\s*(No security issues found|No bugs found|No serious issues)\.?\s*$',
+                  re.IGNORECASE,
+              )
+              response = '\n'.join(
+                  line for line in response.splitlines() if not forbidden.match(line)
+              ).strip()
+
+          if not response:
+              response = '**Changed files**\n- Not available\n\n**Summary**\nNo summary returned.\n\n**Scope**\nNot available.\n\n**Notes**\nNo concrete follow-up notes.'
+
+          body = f'{marker}\n{heading}\n\n{response}\n'
+          if len(body) > max_chars:
+              available = max_chars - len(trailer)
+              snippet = body[:available]
+              boundaries = [snippet.rfind('\n\n'), snippet.rfind('\n- '), snippet.rfind('. '), snippet.rfind('.\n')]
+              cut = max(boundaries)
+              if cut > 200:
+                  body = snippet[:cut + 1].strip()
+              else:
+                  body = snippet.rstrip()
+              body = body.rstrip(' ,;:-') + trailer
+
+          Path('note.md').write_text(body)
+          PY
+          COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.type == "Bot" and (.body | contains("<!-- ai-pr-note -->") or contains("<!-- ai-pr-summary -->") or contains("<!-- ai-pr-review -->"))) | .id' \
+            | head -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" --method PATCH --field body="$(cat note.md)"
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file note.md
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
