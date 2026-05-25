@@ -4,6 +4,7 @@
 [![CI Validation](https://github.com/k0rventen/avea/actions/workflows/ci-validation.yml/badge.svg)](https://github.com/k0rventen/avea/actions/workflows/ci-validation.yml)
 [![Python Versions](https://img.shields.io/pypi/pyversions/avea.svg)](https://pypi.org/project/avea/)
 [![License](https://img.shields.io/pypi/l/avea.svg)](https://github.com/k0rventen/avea/blob/master/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
 The [Avea bulb from Elgato](https://www.amazon.co.uk/Elgato-Avea-Dynamic-Light-Android-Smartphone/dp/B00O4EZ11Q) is a light bulb that connects to an iPhone or Android app via Bluetooth.
@@ -15,6 +16,7 @@ Tested on Raspberry Pi 3 and Zero W (with integrated bluetooth).
 - [Control of an Elgato Avea bulb using Python](#control-of-an-elgato-avea-bulb-using-python)
   - [TL;DR](#tldr)
   - [Library usage](#library-usage)
+  - [Development](#development)
   - [Code documentation](#code-documentation)
   - [Reverse engineering of the bulb](#reverse-engineering-of-the-bulb)
   - [Communication protocol](#communication-protocol)
@@ -101,6 +103,27 @@ theManufacturerName = myBulb.get_manufacturer_name()  # query the bulb manufactu
 That's it. Pretty simple.
 
 Check the explanations below for more informations, or check the sources !
+
+
+## Development
+
+Install the development dependencies before running tests locally:
+
+```bash
+python3 -m pip install -e ".[dev]"
+```
+
+Run the test suite, including the Black formatting check:
+
+```bash
+python3 -m pytest
+```
+
+Format the code with Black before opening a pull request:
+
+```bash
+python3 -m black .
+```
 
 
 ## Code documentation
