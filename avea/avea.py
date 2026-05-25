@@ -48,7 +48,16 @@ def _format_firmware_version(value: str) -> str:
 
 
 class Bulb:
-    """The class that represents an Avea bulb."""
+    """Represent and control a single Elgato Avea bulb.
+
+    The class exposes a synchronous public API while using ``asyncio`` and
+    ``bleak`` internally for Bluetooth Low Energy communication. Methods that
+    read or write bulb state open a connection on demand when the bulb is not
+    already connected and close it again afterwards.
+
+    Args:
+        address: Bluetooth device address of the Avea bulb.
+    """
 
     def __init__(self, address: str):
         self.addr = address
@@ -113,6 +122,12 @@ class Bulb:
         self._loop_ready = None
 
     def close(self) -> None:
+        """Close the BLE connection and stop the internal event loop.
+
+        Calling this method is safe even when the bulb is already closed. Use it
+        when the object is no longer needed to release Bluetooth and thread
+        resources explicitly.
+        """
         with self._op_lock:
             if self._loop is None:
                 return
@@ -194,14 +209,27 @@ class Bulb:
             await client.disconnect()
 
     def subscribe_to_notification(self):
-        """Notifications are handled directly by bleak during connect."""
+        """Return whether notification handling is enabled.
+
+        Notifications are subscribed automatically during connection setup, so
+        callers normally do not need to call this method directly.
+
+        Returns:
+            Always ``True``.
+        """
         return True
 
     def connect(self) -> bool:
+        """Connect to the bulb over Bluetooth Low Energy.
+
+        Returns:
+            ``True`` if a connection is available, otherwise ``False``.
+        """
         with self._op_lock:
             return self._submit(self._connect())
 
     def disconnect(self) -> None:
+        """Disconnect from the bulb if currently connected."""
         with self._op_lock:
             if not self._client:
                 return
@@ -380,6 +408,12 @@ class Bulb:
     # Public API
     # ------------------------------------------------------------------
     def get_fw_version(self) -> str:
+        """Read the bulb firmware version.
+
+        Returns:
+            Firmware version as a formatted string, or an empty string when it
+            cannot be read.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -393,6 +427,12 @@ class Bulb:
         return result
 
     def get_serial_number(self) -> str:
+        """Read the bulb serial number.
+
+        Returns:
+            Serial number reported by the bulb, or an empty string when it
+            cannot be read.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -408,6 +448,12 @@ class Bulb:
         return result
 
     def get_hardware_revision(self) -> str:
+        """Read the bulb hardware revision.
+
+        Returns:
+            Hardware revision reported by the bulb, or an empty string when it
+            cannot be read.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -421,6 +467,12 @@ class Bulb:
         return result
 
     def get_manufacturer_name(self) -> str:
+        """Read the bulb manufacturer name.
+
+        Returns:
+            Manufacturer name reported by the bulb, or an empty string when it
+            cannot be read.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -434,6 +486,12 @@ class Bulb:
         return result
 
     def set_brightness(self, brightness):
+        """Set the bulb brightness.
+
+        Args:
+            brightness: Brightness value from ``0`` to ``4095``. Values outside
+                this range are clamped.
+        """
         with self._op_lock:
             payload = compute_brightness(check_bounds(brightness))
             already_connected = self._is_connected()
@@ -445,6 +503,12 @@ class Bulb:
         self.brightness = check_bounds(brightness)
 
     def get_brightness(self):
+        """Read the current bulb brightness.
+
+        Returns:
+            Brightness value from ``0`` to ``4095``. If the bulb cannot be
+            reached, the last cached value is returned.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -457,6 +521,17 @@ class Bulb:
             return self.brightness
 
     def set_color(self, white, red, green, blue):
+        """Set the bulb color using 12-bit white, red, green and blue channels.
+
+        Args:
+            white: White channel value from ``0`` to ``4095``.
+            red: Red channel value from ``0`` to ``4095``.
+            green: Green channel value from ``0`` to ``4095``.
+            blue: Blue channel value from ``0`` to ``4095``.
+
+        Notes:
+            Values outside the accepted range are clamped before being sent.
+        """
         with self._op_lock:
             payload = compute_color(
                 check_bounds(white),
@@ -477,10 +552,30 @@ class Bulb:
         self._color_known = True
 
     def set_rgb(self, red, green, blue):
+        """Set the bulb color using standard RGB channel values.
+
+        Args:
+            red: Red channel value from ``0`` to ``255``.
+            green: Green channel value from ``0`` to ``255``.
+            blue: Blue channel value from ``0`` to ``255``.
+
+        Notes:
+            RGB values are converted to the internal 12-bit channel scale.
+        """
         with self._op_lock:
             self.set_color(0, red * 16, green * 16, blue * 16)
 
     def set_smooth_transition(self, target_red, target_green, target_blue, duration=2, fps=60):
+        """Fade smoothly from the current color to a target RGB color.
+
+        Args:
+            target_red: Target red channel value from ``0`` to ``255``.
+            target_green: Target green channel value from ``0`` to ``255``.
+            target_blue: Target blue channel value from ``0`` to ``255``.
+            duration: Transition duration in seconds.
+            fps: Requested updates per second. The effective value is capped by
+                the library to keep BLE communication stable.
+        """
         if self._color_known:
             init_r = self.red
             init_g = self.green
@@ -520,6 +615,13 @@ class Bulb:
                 self.disconnect()
 
     def get_color(self):
+        """Read the current 12-bit white, red, green and blue channel values.
+
+        Returns:
+            Tuple ``(white, red, green, blue)`` with values from ``0`` to
+            ``4095``. If the bulb cannot be reached, the last cached values are
+            returned.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -533,6 +635,13 @@ class Bulb:
             return self.white, self.red, self.green, self.blue
 
     def get_rgb(self):
+        """Read the current color as standard RGB values.
+
+        Returns:
+            Tuple ``(red, green, blue)`` with channel values from ``0`` to
+            ``255``. If the bulb cannot be reached, the last cached values are
+            returned.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -546,6 +655,12 @@ class Bulb:
             return int(self.red / 16), int(self.green / 16), int(self.blue / 16)
 
     def get_name(self):
+        """Read the bulb name.
+
+        Returns:
+            Name reported by the bulb. If the bulb cannot be reached, the last
+            cached name is returned.
+        """
         with self._op_lock:
             already_connected = self._is_connected()
             if not already_connected and not self.connect():
@@ -558,6 +673,11 @@ class Bulb:
             return self.name
 
     def set_name(self, name: str):
+        """Set the bulb name.
+
+        Args:
+            name: New UTF-8 encoded name to send to the bulb.
+        """
         with self._op_lock:
             byte_name = name.encode("utf-8")
             command = b"\x58" + byte_name
@@ -569,6 +689,12 @@ class Bulb:
                 self.disconnect()
 
     def process_notification(self, data: bytes):
+        """Update cached bulb state from a raw BLE notification payload.
+
+        Args:
+            data: Notification bytes received from the Avea control
+                characteristic.
+        """
         if not data:
             return
         cmd = data[0]
@@ -663,6 +789,18 @@ def _run_async(factory: Callable[[], Awaitable]):
 
 
 def discover_avea_bulbs(timeout: float = 4.0):
+    """Discover nearby Elgato Avea bulbs.
+
+    Args:
+        timeout: Bluetooth scan duration in seconds.
+
+    Returns:
+        List of :class:`Bulb` objects for discovered Avea devices.
+
+    Notes:
+        Depending on the operating system, Bluetooth discovery may require
+        additional permissions.
+    """
     return _run_async(lambda: _discover(timeout))
 
 
@@ -671,7 +809,15 @@ def discover_avea_bulbs(timeout: float = 4.0):
 # ----------------------------------------------------------------------
 
 def compute_brightness(brightness):
-    """Return the payload for the specified brightness."""
+    """Build the BLE payload for a brightness command.
+
+    Args:
+        brightness: Brightness value from ``0`` to ``4095``. The value is
+            expected to be clamped before calling this helper.
+
+    Returns:
+        Command payload bytes starting with ``0x57``.
+    """
     value = hex(int(brightness))[2:]
     value = value.zfill(4)
     value = value[2:] + value[:2]
@@ -679,7 +825,17 @@ def compute_brightness(brightness):
 
 
 def compute_color(w=2000, r=0, g=0, b=0):
-    """Return the payload for the specified colors."""
+    """Build the BLE payload for a color command.
+
+    Args:
+        w: White channel value from ``0`` to ``4095``.
+        r: Red channel value from ``0`` to ``4095``.
+        g: Green channel value from ``0`` to ``4095``.
+        b: Blue channel value from ``0`` to ``4095``.
+
+    Returns:
+        Command payload bytes starting with ``0x35``.
+    """
     color = "35"
     fading = "1101"
     unknown = "0a00"
@@ -692,7 +848,16 @@ def compute_color(w=2000, r=0, g=0, b=0):
 
 
 def compute_transition_table(init, target, iterations):
-    """Compute a list of values for a smooth transition between 2 numbers."""
+    """Compute eased intermediate values for a smooth color transition.
+
+    Args:
+        init: Initial channel value.
+        target: Target channel value.
+        iterations: Number of transition steps to generate.
+
+    Returns:
+        List of integer channel values, including the final target value.
+    """
     iterations = max(1, int(iterations))
     if iterations == 1:
         return [target]
@@ -706,7 +871,14 @@ def compute_transition_table(init, target, iterations):
 
 
 def check_bounds(value):
-    """Check if the given value is out-of-bounds (0 to 4095)."""
+    """Clamp a numeric value to the Avea 12-bit channel range.
+
+    Args:
+        value: Value to convert to ``int`` and clamp.
+
+    Returns:
+        Integer between ``0`` and ``4095``. Non-numeric values return ``0``.
+    """
     try:
         ivalue = int(value)
     except (TypeError, ValueError):
