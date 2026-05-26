@@ -51,7 +51,7 @@ sudo pip3 install --upgrade avea
 ```bash
 git clone https://github.com/k0rventen/avea
 cd avea
-sudo python3 setup.py install
+sudo python3 -m pip install .
 ```
 
 ## Library usage
