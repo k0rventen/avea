@@ -148,7 +148,9 @@ class Bulb:
         self.process_notification(payload)
         event = self._notification_event
         expected = self._expected_cmd
-        if event is not None and (expected is None or (payload and payload[0] == expected)):
+        if event is not None and (
+            expected is None or (payload and payload[0] == expected)
+        ):
             event.set()
 
     async def _connect(self) -> bool:
@@ -169,9 +171,8 @@ class Bulb:
             if device is None:
                 raise BleakError(f"Device {self.addr} not found")
             self._device = device
-            display_name = (
-                device.name
-                or (self.name if self.name != "Unknown" else self.addr)
+            display_name = device.name or (
+                self.name if self.name != "Unknown" else self.addr
             )
             client = await establish_connection(
                 BleakClient,
@@ -241,7 +242,9 @@ class Bulb:
     # ------------------------------------------------------------------
     # Command helpers
     # ------------------------------------------------------------------
-    async def _write_command(self, payload: bytes, *, with_response: bool = False) -> None:
+    async def _write_command(
+        self, payload: bytes, *, with_response: bool = False
+    ) -> None:
         if not self._client or not self._client.is_connected:
             raise BleakError("Client is not connected")
         await self._client.write_gatt_char(
@@ -265,7 +268,9 @@ class Bulb:
         self._notification_event = event
         self._expected_cmd = expected_cmd
         try:
-            await self._client.write_gatt_char(CONTROL_CHARACTERISTIC_UUID, command, response=False)
+            await self._client.write_gatt_char(
+                CONTROL_CHARACTERISTIC_UUID, command, response=False
+            )
             await asyncio.wait_for(event.wait(), timeout)
         except asyncio.TimeoutError:
             pass
@@ -379,7 +384,9 @@ class Bulb:
         if not self._client or not self._client.is_connected:
             raise BleakError("Client is not connected")
         last_payload = None
-        for index, (r, g, b) in enumerate(zip(red_table, green_table, blue_table), start=1):
+        for index, (r, g, b) in enumerate(
+            zip(red_table, green_table, blue_table), start=1
+        ):
             payload = compute_color(
                 check_bounds(0),
                 check_bounds(r),
@@ -565,7 +572,9 @@ class Bulb:
         with self._op_lock:
             self.set_color(0, red * 16, green * 16, blue * 16)
 
-    def set_smooth_transition(self, target_red, target_green, target_blue, duration=2, fps=60):
+    def set_smooth_transition(
+        self, target_red, target_green, target_blue, duration=2, fps=60
+    ):
         """Fade smoothly from the current color to a target RGB color.
 
         Args:
@@ -705,9 +714,15 @@ class Bulb:
 
         elif cmd == 0x35:
             hex_val = values.hex()
-            self.red = int.from_bytes(bytes.fromhex(hex_val[-4:]), "little") ^ int(0x3000)
-            self.green = int.from_bytes(bytes.fromhex(hex_val[-8:-4]), "little") ^ int(0x2000)
-            self.blue = int.from_bytes(bytes.fromhex(hex_val[-12:-8]), "little") ^ int(0x1000)
+            self.red = int.from_bytes(bytes.fromhex(hex_val[-4:]), "little") ^ int(
+                0x3000
+            )
+            self.green = int.from_bytes(bytes.fromhex(hex_val[-8:-4]), "little") ^ int(
+                0x2000
+            )
+            self.blue = int.from_bytes(bytes.fromhex(hex_val[-12:-8]), "little") ^ int(
+                0x1000
+            )
             self.white = int.from_bytes(bytes.fromhex(hex_val[-16:-12]), "little")
             self._color_known = True
 
@@ -807,6 +822,7 @@ def discover_avea_bulbs(timeout: float = 4.0):
 # ----------------------------------------------------------------------
 # Utility functions
 # ----------------------------------------------------------------------
+
 
 def compute_brightness(brightness):
     """Build the BLE payload for a brightness command.

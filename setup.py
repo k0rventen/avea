@@ -42,5 +42,11 @@ setuptools.setup(
         "bleak>=1.0.0",
         "bleak-retry-connector>=4.0.0",
     ],
+    extras_require={
+        "dev": [
+            "black>=26,<27",
+            "pytest",
+        ],
+    },
     python_requires=">=3.10,<4",
 )
