@@ -66,7 +66,9 @@ class LoggingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_firmware_version_strips_trailing_nul(self):
         bulb = Bulb("00:11:22:33:44:55")
-        bulb._client = FirmwareClient(payload=bytearray(b"firmware-version\x00"))
+        bulb._client = FirmwareClient(
+            payload=bytearray(b"firmware-version\x00ignored\x00")
+        )
 
         self.assertEqual(await bulb._read_firmware_version(), "firmware-version")
 
@@ -97,9 +99,19 @@ class LoggingTests(unittest.IsolatedAsyncioTestCase):
     def test_process_name_notification_strips_trailing_nul(self):
         bulb = Bulb("00:11:22:33:44:55")
 
-        bulb.process_notification(b"\x58test-bulb\x00")
+        bulb.process_notification(b"\x58test-bulb\x00ignored\x00")
 
         self.assertEqual(bulb.name, "test-bulb")
+
+    def test_process_name_notification_logs_decode_error(self):
+        bulb = Bulb("00:11:22:33:44:55")
+        bulb.name = "Previous name"
+
+        with self.assertLogs("avea.avea", level="WARNING") as logs:
+            bulb.process_notification(b"\x58\xff")
+
+        self.assertIn("Could not decode bulb name notification", "\n".join(logs.output))
+        self.assertEqual(bulb.name, "Unknown")
 
     async def test_read_serial_number_reads_expected_uuid(self):
         bulb = Bulb("00:11:22:33:44:55")
@@ -157,9 +169,9 @@ class LoggingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_hardware_revision_reads_expected_uuid(self):
         bulb = Bulb("00:11:22:33:44:55")
-        bulb._client = FirmwareClient(payload=bytearray(b"Elgato Avea\x00"))
+        bulb._client = FirmwareClient(payload=bytearray(b"revision\x00ignored"))
 
-        self.assertEqual(await bulb._read_hardware_revision(), "Elgato Avea")
+        self.assertEqual(await bulb._read_hardware_revision(), "revision")
         self.assertEqual(bulb._client.uuid, HARDWARE_REVISION_UUID)
 
     async def test_read_hardware_revision_logs_bleak_error(self):
@@ -182,9 +194,9 @@ class LoggingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_manufacturer_name_reads_expected_uuid(self):
         bulb = Bulb("00:11:22:33:44:55")
-        bulb._client = FirmwareClient(payload=bytearray(b"Elgato Systems GmbH\x00"))
+        bulb._client = FirmwareClient(payload=bytearray(b"manufacturer\x00ignored"))
 
-        self.assertEqual(await bulb._read_manufacturer_name(), "Elgato Systems GmbH")
+        self.assertEqual(await bulb._read_manufacturer_name(), "manufacturer")
         self.assertEqual(bulb._client.uuid, MANUFACTURER_NAME_UUID)
 
     async def test_read_manufacturer_name_logs_bleak_error(self):
