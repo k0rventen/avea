@@ -47,6 +47,10 @@ def _format_firmware_version(value: str) -> str:
     return f"{major}.{minor}.{patch} ({build})"
 
 
+def _decode_ble_string(payload: bytes | bytearray) -> str:
+    return payload.decode("utf-8").split("\x00", 1)[0]
+
+
 class Bulb:
     """Represent and control a single Elgato Avea bulb.
 
@@ -290,10 +294,8 @@ class Bulb:
                 exc_info=True,
             )
             return ""
-        if isinstance(payload, bytearray):
-            payload = bytes(payload)
         try:
-            return payload.decode("utf-8").rstrip("\x00")
+            return _decode_ble_string(payload)
         except UnicodeDecodeError:
             _LOGGER.warning(
                 "Could not decode firmware version from bulb %s",
@@ -314,10 +316,8 @@ class Bulb:
                 exc_info=True,
             )
             return ""
-        if isinstance(payload, bytearray):
-            payload = bytes(payload)
         try:
-            return payload.decode("utf-8").split("\x00", 1)[0]
+            return _decode_ble_string(payload)
         except UnicodeDecodeError:
             _LOGGER.warning(
                 "Could not decode serial number from bulb %s",
@@ -338,10 +338,8 @@ class Bulb:
                 exc_info=True,
             )
             return ""
-        if isinstance(payload, bytearray):
-            payload = bytes(payload)
         try:
-            return payload.decode("utf-8").rstrip("\x00")
+            return _decode_ble_string(payload)
         except UnicodeDecodeError:
             _LOGGER.warning(
                 "Could not decode hardware revision from bulb %s",
@@ -362,10 +360,8 @@ class Bulb:
                 exc_info=True,
             )
             return ""
-        if isinstance(payload, bytearray):
-            payload = bytes(payload)
         try:
-            return payload.decode("utf-8").rstrip("\x00")
+            return _decode_ble_string(payload)
         except UnicodeDecodeError:
             _LOGGER.warning(
                 "Could not decode manufacturer name from bulb %s",
@@ -728,7 +724,7 @@ class Bulb:
 
         elif cmd == 0x58:
             try:
-                self.name = values.decode("utf-8").rstrip("\x00")
+                self.name = _decode_ble_string(values)
             except UnicodeDecodeError:
                 _LOGGER.warning(
                     "Could not decode bulb name notification for bulb %s",
